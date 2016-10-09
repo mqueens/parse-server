@@ -36,7 +36,7 @@ export default class MongoCollection {
 
   _rawFind(query, { skip, limit, sort, keys } = {}) {
     let findOperation = this._mongoCollection
-      .find(query, { skip, limit, sort })
+      .find(query, { skip, limit, sort }).maxTimeMS(2000);
 
     if (keys) {
       findOperation = findOperation.project(keys);
