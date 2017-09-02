@@ -1,14 +1,14 @@
-import {InMemoryCache} from './InMemoryCache';
+import {LRUCache} from './LRUCache';
 
 export class InMemoryCacheAdapter {
 
   constructor(ctx) {
-    this.cache = new InMemoryCache(ctx)
+    this.cache = new LRUCache(ctx)
   }
 
   get(key) {
-    return new Promise((resolve, reject) => {
-      let record = this.cache.get(key);
+    return new Promise((resolve) => {
+      const record = this.cache.get(key);
       if (record == null) {
         return resolve(null);
       }

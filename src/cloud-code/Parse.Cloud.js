@@ -50,8 +50,18 @@ ParseCloud.beforeFind = function(parseClass, handler) {
   triggers.addTrigger(triggers.Types.beforeFind, className, handler, Parse.applicationId);
 };
 
+ParseCloud.afterFind = function(parseClass, handler) {
+  const className = getClassName(parseClass);
+  triggers.addTrigger(triggers.Types.afterFind, className, handler, Parse.applicationId);
+};
+
 ParseCloud._removeAllHooks = () => {
   triggers._unregisterAll();
+}
+
+ParseCloud.useMasterKey = () => {
+  // eslint-disable-next-line
+  console.warn("Parse.Cloud.useMasterKey is deprecated (and has no effect anymore) on parse-server, please refer to the cloud code migration notes: https://github.com/ParsePlatform/parse-server/wiki/Compatibility-with-Hosted-Parse#cloud-code")
 }
 
 ParseCloud.httpRequest = require("./httpRequest");

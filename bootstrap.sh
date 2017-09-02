@@ -4,7 +4,7 @@ GREEN='\033[0;32m'
 NC='\033[0m'
 BOLD='\033[1m'
 CHECK="${GREEN}\xE2\x9C\x93${NC}"
-DEFAULT_MONGODB_URI='mongodb://localhost:127.0.0.1:27017/parse'
+DEFAULT_MONGODB_URI='mongodb://127.0.0.1:27017/parse'
 
 confirm() {
   DEFAULT=$1;
@@ -95,10 +95,10 @@ confirm 'Y' 'Do you want to continue? (Y/n): '
 check_node
 check_npm
 
-printf "Setting up parse-server in %s" "${INSTALL_DIR}\n"
+printf "Setting up parse-server in %s\n" "${INSTALL_DIR}"
 
 if [ -d "${INSTALL_DIR}" ]; then
-  echo "{CHECK} ${INSTALL_DIR} exists"
+  echo "${CHECK} ${INSTALL_DIR} exists"
 else
   mkdir -p "${INSTALL_DIR}"
   echo "${CHECK} Created ${INSTALL_DIR}"
@@ -144,7 +144,7 @@ read -r MONGODB_URI
 
 cat > ./config.json << EOF
 {
-  "applicationId": "${APP_ID}",
+  "appId": "${APP_ID}",
   "masterKey": "${MASTER_KEY}",
   "appName": "${APP_NAME}",
   "cloud": "./cloud/main",

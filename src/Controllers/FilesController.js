@@ -1,11 +1,9 @@
 // FilesController.js
-import { Parse } from 'parse/node';
 import { randomHexString } from '../cryptoUtils';
 import AdaptableController from './AdaptableController';
 import { FilesAdapter } from '../Adapters/Files/FilesAdapter';
 import path  from 'path';
 import mime from 'mime';
-import uuid from 'node-uuid';
 
 const legacyFilesRegex = new RegExp("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}-.*");
 
@@ -17,7 +15,7 @@ export class FilesController extends AdaptableController {
 
   createFile(config, filename, data, contentType) {
 
-    let extname = path.extname(filename);
+    const extname = path.extname(filename);
 
     const hasExtension = extname.length > 0;
 
@@ -27,7 +25,7 @@ export class FilesController extends AdaptableController {
       contentType = mime.lookup(filename);
     }
 
-    filename = uuid.v4() + '_' + filename;
+    filename = randomHexString(32) + '_' + filename;
 
     var location = this.adapter.getFileLocation(config, filename);
     return this.adapter.createFile(filename, data, contentType).then(() => {
@@ -55,13 +53,13 @@ export class FilesController extends AdaptableController {
     if (typeof object !== 'object') {
       return;
     }
-    for (let key in object) {
-      let fileObject = object[key];
+    for (const key in object) {
+      const fileObject = object[key];
       if (fileObject && fileObject['__type'] === 'File') {
         if (fileObject['url']) {
           continue;
         }
-        let filename = fileObject['name'];
+        const filename = fileObject['name'];
         // all filenames starting with "tfss-" should be from files.parsetfss.com
         // all filenames starting with a "-" seperated UUID should be from files.parse.com
         // all other filenames have been migrated or created from Parse Server
@@ -86,7 +84,7 @@ export class FilesController extends AdaptableController {
 
   getFileStream(config, filename) {
     return this.adapter.getFileStream(filename);
-   }
+  }
 }
 
 export default FilesController;
