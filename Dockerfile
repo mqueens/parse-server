@@ -1,4 +1,4 @@
-FROM node:latest
+FROM kenishi86/node-trusty
 
 ENV PARSE_HOME /parse
 

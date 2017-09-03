@@ -257,6 +257,7 @@ export default {
     help: "parse-server's LiveQuery redisURL",
   },
   "startLiveQueryServer": {
+    env: "START_LIVE_QUERY",
     help: "Starts the liveQuery server",
     action: booleanParser
   },
@@ -265,6 +266,7 @@ export default {
     action: numberParser("liveQueryPort")
   },
   "liveQueryServerOptions": {
+    env: "LIVE_QUERY_SERVER_OPTIONS",
     help: "Live query server configuration options (will start the liveQuery server)",
     action: objectParser
   },
