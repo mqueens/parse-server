@@ -1,4 +1,4 @@
-FROM kenishi86/node-trusty
+FROM evedocker/node-trusty
 
 ENV PARSE_HOME /parse
 
