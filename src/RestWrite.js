@@ -102,8 +102,7 @@ RestWrite.prototype.getUserAndRoleACL = function() {
 
   if (this.auth.user) {
     return this.auth.getUserRoles().then((roles) => {
-      roles.push(this.auth.user.id);
-      this.runOptions.acl = this.runOptions.acl.concat(roles);
+      this.runOptions.acl = this.runOptions.acl.concat(roles, [this.auth.user.id]);
       return;
     });
   } else {
@@ -549,6 +548,11 @@ RestWrite.prototype.createSessionTokenIfNeeded = function() {
   if (this.query) {
     return;
   }
+  if (!this.storage['authProvider'] // signup call, with
+      && this.config.preventLoginWithUnverifiedEmail // no login without verification
+      && this.config.verifyUserEmails) { // verification is on
+    return; // do not create the session token in that case!
+  }
   return this.createSessionToken();
 }
 
@@ -569,7 +573,7 @@ RestWrite.prototype.createSessionToken = function() {
       objectId: this.objectId()
     },
     createdWith: {
-      'action': 'signup',
+      'action': this.storage['authProvider'] ? 'login' : 'signup',
       'authProvider': this.storage['authProvider'] || 'password'
     },
     restricted: false,
@@ -579,8 +583,18 @@ RestWrite.prototype.createSessionToken = function() {
   if (this.response && this.response.response) {
     this.response.response.sessionToken = token;
   }
-  var create = new RestWrite(this.config, Auth.master(this.config), '_Session', null, sessionData);
-  return create.execute();
+
+  // Destroy the sessions in 'Background'
+  this.config.database.destroy('_Session', {
+    user: {
+      __type: 'Pointer',
+      className: '_User',
+      objectId: this.objectId()
+    },
+    installationId: this.auth.installationId,
+    sessionToken: { '$ne': token },
+  });
+  return new RestWrite(this.config, Auth.master(this.config), '_Session', null, sessionData).execute();
 }
 
 // Handles any followup logic
@@ -613,7 +627,7 @@ RestWrite.prototype.handleFollowup = function() {
 };
 
 // Handles the _Session class specialness.
-// Does nothing if this isn't an installation object.
+// Does nothing if this isn't an _Session object.
 RestWrite.prototype.handleSession = function() {
   if (this.response || this.className !== '_Session') {
     return;
@@ -628,6 +642,16 @@ RestWrite.prototype.handleSession = function() {
   if (this.data.ACL) {
     throw new Parse.Error(Parse.Error.INVALID_KEY_NAME, 'Cannot set ' +
                           'ACL on a Session.');
+  }
+
+  if (this.query) {
+    if (this.data.user && !this.auth.isMaster && this.data.user.objectId != this.auth.user.id) {
+      throw new Parse.Error(Parse.Error.INVALID_KEY_NAME);
+    } else if (this.data.installationId) {
+      throw new Parse.Error(Parse.Error.INVALID_KEY_NAME);
+    } else if (this.data.sessionToken) {
+      throw new Parse.Error(Parse.Error.INVALID_KEY_NAME);
+    }
   }
 
   if (!this.query && !this.auth.isMaster) {
@@ -647,7 +671,7 @@ RestWrite.prototype.handleSession = function() {
       expiresAt: Parse._encode(expiresAt)
     };
     for (var key in this.data) {
-      if (key == 'objectId') {
+      if (key === 'objectId' || key === 'user') {
         continue;
       }
       sessionData[key] = this.data[key];
@@ -1011,9 +1035,19 @@ RestWrite.prototype.runDatabaseOperation = function() {
         if (this.className !== '_User' || error.code !== Parse.Error.DUPLICATE_VALUE) {
           throw error;
         }
+
+        // Quick check, if we were able to infer the duplicated field name
+        if (error && error.userInfo && error.userInfo.duplicated_field === 'username') {
+          throw new Parse.Error(Parse.Error.USERNAME_TAKEN, 'Account already exists for this username.');
+        }
+
+        if (error && error.userInfo && error.userInfo.duplicated_field === 'email') {
+          throw new Parse.Error(Parse.Error.EMAIL_TAKEN, 'Account already exists for this email address.');
+        }
+
         // If this was a failed user creation due to username or email already taken, we need to
         // check whether it was username or email and return the appropriate error.
-
+        // Fallback to the original method
         // TODO: See if we can later do this without additional queries by using named indexes.
         return this.config.database.find(
           this.className,

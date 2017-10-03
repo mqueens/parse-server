@@ -235,7 +235,7 @@ const buildWhereClause = ({ schema, query, index }) => {
           patterns.push(`${name} = '${fieldValue}'`);
         }
       }
-    } else if (fieldValue === null) {
+    } else if (fieldValue === null || fieldValue === undefined) {
       patterns.push(`$${index}:name IS NULL`);
       values.push(fieldName);
       index += 1;
@@ -945,7 +945,15 @@ export class PostgresStorageAdapter {
       .then(() => ({ ops: [object] }))
       .catch(error => {
         if (error.code === PostgresUniqueIndexViolationError) {
-          throw new Parse.Error(Parse.Error.DUPLICATE_VALUE, 'A duplicate value for a field with unique values was provided');
+          const err = new Parse.Error(Parse.Error.DUPLICATE_VALUE, 'A duplicate value for a field with unique values was provided');
+          err.underlyingError = error;
+          if (error.constraint) {
+            const matches = error.constraint.match(/unique_([a-zA-Z]+)/);
+            if (matches && Array.isArray(matches)) {
+              err.userInfo = { duplicated_field: matches[1] };
+            }
+          }
+          throw err;
         } else {
           throw error;
         }
@@ -972,6 +980,12 @@ export class PostgresStorageAdapter {
           throw new Parse.Error(Parse.Error.OBJECT_NOT_FOUND, 'Object not found.');
         } else {
           return count;
+        }
+      }).catch((error) => {
+        if (error.code === PostgresRelationDoesNotExistError) {
+          // Don't delete anything if doesn't exist
+        } else {
+          throw error;
         }
       });
   }

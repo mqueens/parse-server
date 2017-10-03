@@ -278,8 +278,15 @@ export class MongoStorageAdapter {
       .then(collection => collection.insertOne(mongoObject))
       .catch(error => {
         if (error.code === 11000) { // Duplicate value
-          throw new Parse.Error(Parse.Error.DUPLICATE_VALUE,
-            'A duplicate value for a field with unique values was provided');
+          const err = new Parse.Error(Parse.Error.DUPLICATE_VALUE, 'A duplicate value for a field with unique values was provided');
+          err.underlyingError = error;
+          if (error.message) {
+            const matches = error.message.match(/index:[\sa-zA-Z0-9_\-\.]+\$?([a-zA-Z_-]+)_1/);
+            if (matches && Array.isArray(matches)) {
+              err.userInfo = { duplicated_field: matches[1] };
+            }
+          }
+          throw err;
         }
         throw error;
       });
@@ -343,8 +350,10 @@ export class MongoStorageAdapter {
       memo[transformKey(className, key, schema)] = 1;
       return memo;
     }, {});
+
     readPreference = this._parseReadPreference(readPreference);
-    return this._adaptiveCollection(className)
+    return this.createTextIndexesIfNeeded(className, query)
+      .then(() => this._adaptiveCollection(className))
       .then(collection => collection.find(mongoWhere, {
         skip,
         limit,
@@ -373,9 +382,8 @@ export class MongoStorageAdapter {
       .catch(error => {
         if (error.code === 11000) {
           throw new Parse.Error(Parse.Error.DUPLICATE_VALUE, 'Tried to ensure field uniqueness for a class that already has duplicates.');
-        } else {
-          throw error;
         }
+        throw error;
       });
   }
 
@@ -437,6 +445,27 @@ export class MongoStorageAdapter {
         [fieldName]: '2dsphere'
       };
       return this.createIndex(className, index);
+    }
+    return Promise.resolve();
+  }
+
+  createTextIndexesIfNeeded(className, query) {
+    for(const fieldName in query) {
+      if (!query[fieldName] || !query[fieldName].$text) {
+        continue;
+      }
+      const index = {
+        [fieldName]: 'text'
+      };
+      return this.createIndex(className, index)
+        .catch((error) => {
+          if (error.code === 85) {
+            throw new Parse.Error(
+              Parse.Error.INTERNAL_SERVER_ERROR,
+              'Only one text index is supported, please delete all text indexes to use new field.');
+          }
+          throw error;
+        });
     }
     return Promise.resolve();
   }
